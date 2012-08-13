@@ -2,7 +2,8 @@
  * Chat
  */
 
-var history = [],
+var mongo = require('mongodb'),
+    db = new mongo.Db('test', new mongo.Server('localhost', mongo.Connection.DEFAULT_PORT,{}), {}),
     clients = [],
     colors = [ 'red', 'green', 'blue', 'magenta', 'purple', 'plum', 'orange' ];
 
@@ -17,9 +18,20 @@ var request = function(request) {
   
   console.log((new Date()) + ' Connection accepted.');
   
-  if (history.length > 0) {
-    connection.sendUTF(JSON.stringify({type: 'history', data: history}));
-  }
+  db.open(function() {
+    db.createCollection('comments', function(err, collection) {
+      collection.find({}, {
+        time: true,
+        unixtime: true,
+        text: true,
+        author: true,
+        color: true
+      }, {'limit':20}).toArray(function(err, docs){
+        connection.sendUTF(JSON.stringify({type: 'history', data: docs}));
+        db.close();
+      });
+    });
+  });
   
   // we'll handle all messages from users here
   connection.on('message', function(message) {
@@ -35,12 +47,20 @@ var request = function(request) {
         console.log((new Date()) + ' Received Message from ' + userName + ': ' + message.utf8Data);
         var obj = {
           time: (new Date()).getTime(),
+          unixtime: (new Date())/1000,
           text: message.utf8Data,
           author: userName,
           color: userColor
         };
-        history.push(obj);
-        history = history.slice(-100);
+        
+        // add to comments collection
+        db.open(function() {
+          db.collection('comments', function(err, collection) {
+            collection.insert(obj);
+            console.log((new Date()) + ' DB insert.');
+            db.close();
+          });
+        });
         
         // broadcast message to all connected clients
         var json = JSON.stringify({type: 'message', data: obj});
@@ -63,6 +83,3 @@ var request = function(request) {
 };
 
 exports.request = request;
-
-
-
