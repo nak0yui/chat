@@ -5,7 +5,6 @@
 var
 mongoose = require('mongoose'),
 comment = require('./schema/comment.js'),
-clients = [],
 colors = [ 'red', 'green', 'blue', 'magenta', 'purple', 'plum', 'orange' ],
 history = [],
 
